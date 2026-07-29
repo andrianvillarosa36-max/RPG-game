@@ -110,9 +110,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     private void initSprites() {
         playerSheet = new SpriteSheet(
-                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 48, 48);
+                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 48, 48, 2);
         enemySheet = new SpriteSheet(
-                PlaceholderArt.generateCharacterSheet(44, 44, Color.rgb(200, 70, 70), Color.rgb(30, 10, 10)), 44, 44);
+                PlaceholderArt.generateCharacterSheet(44, 44, Color.rgb(200, 70, 70), Color.rgb(30, 10, 10)), 44, 44, 4);
     }
 
     @Override
@@ -278,7 +278,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         }
 
         int frame = SpriteSheet.frameForTime(nowMs, SPRITE_FRAME_MS, SPRITE_FRAME_COUNT);
-        Rect enemySrc = enemySheet.frameRect(0, frame);
+        Rect enemySrc = enemySheet.frameRectForIndex(frame);
         for (Enemy e : world.getEnemies()) {
             RectF dst = new RectF(e.getX(), e.getY(), e.getX() + e.getWidth(), e.getY() + e.getHeight());
             canvas.drawBitmap(enemySheet.getBitmap(), enemySrc, dst, null);
@@ -286,7 +286,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         }
 
         Player p = world.getPlayer();
-        Rect playerSrc = playerSheet.frameRect(0, frame);
+        Rect playerSrc = playerSheet.frameRectForIndex(frame);
         RectF playerDst = new RectF(p.getX(), p.getY(), p.getX() + p.getWidth(), p.getY() + p.getHeight());
         boolean facingLeft = p.getFacingX() < -0.01f;
         canvas.save();
