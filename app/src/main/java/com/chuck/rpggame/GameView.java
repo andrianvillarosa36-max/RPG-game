@@ -1,6 +1,7 @@
 package com.chuck.rpggame;
 
 import android.content.Context;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -97,7 +98,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     private void initSprites() {
         playerSheet = new SpriteSheet(
-                PlaceholderArt.generateCharacterSheet(48, 48, Color.rgb(70, 160, 235), Color.WHITE), 48, 48);
+                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 48, 48);
         enemySheet = new SpriteSheet(
                 PlaceholderArt.generateCharacterSheet(44, 44, Color.rgb(200, 70, 70), Color.rgb(30, 10, 10)), 44, 44);
     }
