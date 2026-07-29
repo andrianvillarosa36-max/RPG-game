@@ -1,7 +1,7 @@
 package com.chuck.rpggame;
 
+import android.app.Activity;
 import android.content.Context;
-import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -13,6 +13,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import com.chuck.rpggame.core.Enemy;
+import com.chuck.rpggame.core.GameSettings;
 import com.chuck.rpggame.core.GameWorld;
 import com.chuck.rpggame.core.Player;
 import com.chuck.rpggame.core.Skill;
@@ -24,13 +25,21 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     private Thread gameThread;
     private volatile boolean running = false;
 
+    private GameState state = GameState.TITLE;
+    private GameState settingsReturnState = GameState.TITLE;
+
     private GameWorld world;
     private VirtualJoystick joystick;
     private InventoryPanel inventoryPanel;
+    private TitleScreen titleScreen;
+    private PauseMenu pauseMenu;
+    private SettingsScreen settingsScreen;
+    private GameOverScreen gameOverScreen;
 
     private RectF attackButtonBounds;
     private RectF[] skillButtonBounds;
     private RectF inventoryToggleBounds;
+    private RectF pauseButtonBounds;
 
     private int attackButtonPointerId = -1;
     private volatile boolean attackPressedThisFrame = false;
@@ -55,6 +64,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     private final Paint skillButtonReadyPaint = new Paint();
     private final Paint skillButtonCooldownPaint = new Paint();
     private final Paint inventoryToggleButtonPaint = new Paint();
+    private final Paint pauseButtonPaint = new Paint();
     private final Paint textPaint = new Paint();
     private final Paint smallTextPaint = new Paint();
 
@@ -87,6 +97,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         skillButtonReadyPaint.setColor(Color.argb(170, 80, 120, 200));
         skillButtonCooldownPaint.setColor(Color.argb(90, 70, 70, 80));
         inventoryToggleButtonPaint.setColor(Color.argb(160, 120, 100, 60));
+        pauseButtonPaint.setColor(Color.argb(160, 90, 90, 100));
 
         textPaint.setColor(Color.WHITE);
         textPaint.setTextSize(28f);
@@ -108,14 +119,26 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     public void surfaceCreated(SurfaceHolder holder) {
         int w = getWidth();
         int h = getHeight();
-        if (world == null) {
-            world = new GameWorld(w, h);
-        }
 
-        float joyRadius = Math.min(w, h) * 0.12f;
+        setupLayout(w, h);
+
+        titleScreen = new TitleScreen(w, h);
+        pauseMenu = new PauseMenu(w, h);
+        settingsScreen = new SettingsScreen(w, h);
+        gameOverScreen = new GameOverScreen(w, h);
+
+        lastFrameTime = System.currentTimeMillis();
+        running = true;
+        gameThread = new Thread(this);
+        gameThread.start();
+    }
+
+    /** (Re)computes control positions. Called on surface creation and after settings that affect layout. */
+    private void setupLayout(int w, int h) {
+        float joyRadius = Math.min(w, h) * 0.12f * GameSettings.joystickSizeMultiplier();
         joystick = new VirtualJoystick(joyRadius * 1.4f, h - joyRadius * 1.4f, joyRadius);
 
-        float btnRadius = joyRadius * 0.9f;
+        float btnRadius = Math.min(w, h) * 0.12f * 0.9f;
         attackButtonBounds = new RectF(
                 w - btnRadius * 2.6f, h - btnRadius * 2.6f,
                 w - btnRadius * 0.6f, h - btnRadius * 0.6f
@@ -131,13 +154,14 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
         float bagSize = Math.min(w, h) * 0.09f;
         inventoryToggleBounds = new RectF(w - bagSize - 24f, 24f, w - 24f, 24f + bagSize);
+        pauseButtonBounds = new RectF(w - bagSize * 2.2f - 24f, 24f, w - bagSize * 1.2f - 24f, 24f + bagSize);
 
         inventoryPanel = new InventoryPanel(w, h);
+    }
 
-        lastFrameTime = System.currentTimeMillis();
-        running = true;
-        gameThread = new Thread(this);
-        gameThread.start();
+    private void startNewGame() {
+        world = new GameWorld(getWidth(), getHeight());
+        state = GameState.PLAYING;
     }
 
     @Override
@@ -171,12 +195,22 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     }
 
     private void update(float delta, long now) {
+        if (state == GameState.PLAYING) {
+            updatePlaying(delta, now);
+        }
+    }
+
+    private void updatePlaying(float delta, long now) {
         if (world == null) return;
         if (inventoryPanel != null && inventoryPanel.isOpen()) {
             return; // paused while browsing inventory
         }
         world.getPlayer().setMoveDirection(joystick.getDirX(), joystick.getDirY());
         world.update(delta, now);
+        if (!world.getPlayer().isAlive()) {
+            state = GameState.GAME_OVER;
+            return;
+        }
         if (attackPressedThisFrame) {
             world.tryPlayerAttack(now);
             attackPressedThisFrame = false;
@@ -194,10 +228,38 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         if (canvas == null) return;
         long nowMs = System.currentTimeMillis();
         try {
-            drawWorld(canvas, nowMs);
-            drawHud(canvas);
-            drawControls(canvas, nowMs);
-            inventoryPanel.draw(canvas, world.getPlayer());
+            switch (state) {
+                case TITLE:
+                    titleScreen.draw(canvas, getWidth(), getHeight());
+                    break;
+                case PLAYING:
+                    drawWorld(canvas, nowMs);
+                    drawHud(canvas);
+                    drawControls(canvas, nowMs);
+                    inventoryPanel.draw(canvas, world.getPlayer());
+                    break;
+                case PAUSED:
+                    drawWorld(canvas, nowMs);
+                    drawHud(canvas);
+                    drawControls(canvas, nowMs);
+                    pauseMenu.draw(canvas, getWidth(), getHeight());
+                    break;
+                case SETTINGS:
+                    canvas.drawColor(Color.rgb(18, 24, 18));
+                    if (settingsReturnState == GameState.PAUSED) {
+                        drawWorld(canvas, nowMs);
+                        drawHud(canvas);
+                        drawControls(canvas, nowMs);
+                    }
+                    settingsScreen.draw(canvas, getWidth(), getHeight());
+                    break;
+                case GAME_OVER:
+                    drawWorld(canvas, nowMs);
+                    gameOverScreen.draw(canvas, world.getPlayer().getLevel());
+                    break;
+                default:
+                    break;
+            }
         } finally {
             getHolder().unlockCanvasAndPost(canvas);
         }
@@ -273,6 +335,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
         canvas.drawRoundRect(inventoryToggleBounds, 14, 14, inventoryToggleButtonPaint);
         canvas.drawText("BAG", inventoryToggleBounds.left + 4, inventoryToggleBounds.centerY() + 8, smallTextPaint);
+
+        canvas.drawRoundRect(pauseButtonBounds, 14, 14, pauseButtonPaint);
+        canvas.drawText("II", pauseButtonBounds.centerX() - 8, pauseButtonBounds.centerY() + 8, smallTextPaint);
     }
 
     @Override
@@ -287,6 +352,56 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
                 float x = event.getX(pointerIndex);
                 float y = event.getY(pointerIndex);
 
+                if (state == GameState.TITLE) {
+                    if (titleScreen.isNewGame(x, y)) {
+                        startNewGame();
+                    } else if (titleScreen.isSettings(x, y)) {
+                        settingsReturnState = GameState.TITLE;
+                        state = GameState.SETTINGS;
+                    } else if (titleScreen.isExit(x, y)) {
+                        if (getContext() instanceof Activity) {
+                            ((Activity) getContext()).finish();
+                        }
+                    }
+                    break;
+                }
+
+                if (state == GameState.PAUSED) {
+                    if (pauseMenu.isResume(x, y)) {
+                        state = GameState.PLAYING;
+                    } else if (pauseMenu.isSettings(x, y)) {
+                        settingsReturnState = GameState.PAUSED;
+                        state = GameState.SETTINGS;
+                    } else if (pauseMenu.isQuit(x, y)) {
+                        state = GameState.TITLE;
+                    }
+                    break;
+                }
+
+                if (state == GameState.SETTINGS) {
+                    if (settingsScreen.isBack(x, y)) {
+                        state = settingsReturnState;
+                    } else {
+                        settingsScreen.handleTouch(x, y);
+                        setupLayout(getWidth(), getHeight());
+                    }
+                    break;
+                }
+
+                if (state == GameState.GAME_OVER) {
+                    if (gameOverScreen.isRespawn(x, y)) {
+                        startNewGame();
+                    } else if (gameOverScreen.isQuit(x, y)) {
+                        state = GameState.TITLE;
+                    }
+                    break;
+                }
+
+                // state == PLAYING from here on
+                if (pauseButtonBounds.contains(x, y)) {
+                    state = GameState.PAUSED;
+                    break;
+                }
                 if (inventoryPanel.isOpen()) {
                     inventoryPanel.handleTouch(x, y, world.getPlayer());
                     break;
@@ -316,10 +431,12 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
                 break;
             }
             case MotionEvent.ACTION_MOVE: {
-                for (int i = 0; i < event.getPointerCount(); i++) {
-                    int pid = event.getPointerId(i);
-                    if (pid == joystick.getPointerId()) {
-                        joystick.moveTouch(pid, event.getX(i), event.getY(i));
+                if (state == GameState.PLAYING) {
+                    for (int i = 0; i < event.getPointerCount(); i++) {
+                        int pid = event.getPointerId(i);
+                        if (pid == joystick.getPointerId()) {
+                            joystick.moveTouch(pid, event.getX(i), event.getY(i));
+                        }
                     }
                 }
                 break;
@@ -329,12 +446,16 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
                 if (pointerId == attackButtonPointerId) {
                     attackButtonPointerId = -1;
                 }
-                joystick.endTouch(pointerId);
+                if (joystick != null) {
+                    joystick.endTouch(pointerId);
+                }
                 break;
             }
             case MotionEvent.ACTION_CANCEL: {
                 attackButtonPointerId = -1;
-                joystick.endTouch(joystick.getPointerId());
+                if (joystick != null) {
+                    joystick.endTouch(joystick.getPointerId());
+                }
                 break;
             }
             default:
