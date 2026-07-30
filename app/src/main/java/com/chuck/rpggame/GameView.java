@@ -52,6 +52,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     private SpriteSheet enemySheet;
     private static final long SPRITE_FRAME_MS = 150;
     private static final int SPRITE_FRAME_COUNT = 4;
+    private static final float PLAYER_RENDER_SIZE = 96f;
 
     private final Paint groundPaint = new Paint();
     private final Paint gridPaint = new Paint();
@@ -110,7 +111,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     private void initSprites() {
         playerSheet = new SpriteSheet(
-                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 768, 768, 2);
+                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 48, 48, 2);
         enemySheet = new SpriteSheet(
                 PlaceholderArt.generateCharacterSheet(44, 44, Color.rgb(200, 70, 70), Color.rgb(30, 10, 10)), 44, 44, 4);
     }
@@ -286,16 +287,26 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         }
 
         Player p = world.getPlayer();
-        Rect playerSrc = playerSheet.frameRectForIndex(frame);
-        RectF playerDst = new RectF(p.getX(), p.getY(), p.getX() + p.getWidth(), p.getY() + p.getHeight());
-        boolean facingLeft = p.getFacingX() < -0.01f;
-        canvas.save();
-        if (facingLeft) {
-            canvas.scale(-1, 1, playerDst.centerX(), playerDst.centerY());
-        }
-        canvas.drawBitmap(playerSheet.getBitmap(), playerSrc, playerDst, null);
-        canvas.restore();
-        drawHpBar(canvas, p.getX(), p.getY() - 12, p.getWidth(), p.getHp(), p.getMaxHp());
+	Rect playerSrc = playerSheet.frameRectForIndex(frame);
+
+	float renderLeft = p.getX() - (PLAYER_RENDER_SIZE - p.getWidth()) / 2f;
+	float renderTop = p.getY() - (PLAYER_RENDER_SIZE - p.getHeight()) / 2f;
+	RectF playerDst = new RectF(
+        	renderLeft,
+	        renderTop,
+	        renderLeft + PLAYER_RENDER_SIZE,
+	        renderTop + PLAYER_RENDER_SIZE
+	);
+
+	boolean facingLeft = p.getFacingX() < -0.01f;
+	canvas.save();
+	if (facingLeft) {
+    	    canvas.scale(-1, 1, playerDst.centerX(), playerDst.centerY());
+	}
+	canvas.drawBitmap(playerSheet.getBitmap(), playerSrc, playerDst, null);
+	canvas.restore();
+
+	drawHpBar(canvas, p.getX(), p.getY() - 12, p.getWidth(), p.getHp(), p.getMaxHp());
     }
 
     private void drawHpBar(Canvas canvas, float x, float y, float width, int hp, int maxHp) {

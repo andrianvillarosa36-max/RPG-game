@@ -39,7 +39,7 @@ public class Player extends Entity {
     private static final float ATTACK_RANGE = 70f;
 
     public Player(float x, float y) {
-        super(x, y, 96, 96, STARTING_MAX_HP);
+        super(x, y, 48, 48, STARTING_MAX_HP);
     }
 
     /** dx/dy expected roughly in [-1, 1], as fed by the virtual joystick. */
