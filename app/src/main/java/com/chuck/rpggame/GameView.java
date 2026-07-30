@@ -110,7 +110,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     private void initSprites() {
         playerSheet = new SpriteSheet(
-                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 48, 48, 2);
+                BitmapFactory.decodeResource(getResources(), R.drawable.player_walk), 768, 768, 2);
         enemySheet = new SpriteSheet(
                 PlaceholderArt.generateCharacterSheet(44, 44, Color.rgb(200, 70, 70), Color.rgb(30, 10, 10)), 44, 44, 4);
     }
