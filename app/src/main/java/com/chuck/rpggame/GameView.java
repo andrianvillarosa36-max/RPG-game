@@ -287,7 +287,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         }
 
         Player p = world.getPlayer();
-	Rect playerSrc = playerSheet.frameRectForIndex(frame);
+	int playerFrame = p.isMoving() ? frame : 0;
+	Rect playerSrc = playerSheet.frameRectForIndex(playerFrame);
 
 	float renderLeft = p.getX() - (PLAYER_RENDER_SIZE - p.getWidth()) / 2f;
 	float renderTop = p.getY() - (PLAYER_RENDER_SIZE - p.getHeight()) / 2f;
@@ -413,12 +414,12 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
                     state = GameState.PAUSED;
                     break;
                 }
-                if (inventoryPanel.isOpen()) {
-                    inventoryPanel.handleTouch(x, y, world.getPlayer());
-                    break;
-                }
                 if (inventoryToggleBounds.contains(x, y)) {
                     inventoryPanel.toggle();
+                    break;
+                }
+                if (inventoryPanel.isOpen()) {
+                    inventoryPanel.handleTouch(x, y, world.getPlayer());
                     break;
                 }
                 if (attackButtonBounds.contains(x, y) && attackButtonPointerId == -1) {

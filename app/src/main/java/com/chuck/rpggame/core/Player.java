@@ -187,6 +187,10 @@ public class Player extends Entity {
         return facingY;
     }
 
+    public boolean isMoving() {
+        return dirX != 0 || dirY != 0;
+    }
+
     public float getAttackRange() {
         return ATTACK_RANGE;
     }
