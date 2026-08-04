@@ -135,6 +135,10 @@
   body.playMode #toolbar, body.playMode #palette, body.playMode #editorPane{ display:none; }
   body.playMode #previewPane{ flex:1 1 auto; border-bottom:none; min-height:0; }
   body.standaloneGame #exitPlayBtn{ display:none; }
+  #editThisGameBtn{ display:none; margin-left:auto; background:transparent; border:1px solid var(--rune);
+    color:var(--mist-dim); font-family:var(--mono); font-size:10px; letter-spacing:.04em;
+    text-transform:uppercase; padding:4px 8px; border-radius:4px; }
+  body.standaloneGame #editThisGameBtn{ display:inline-block; }
   body.playMode #canvasWrap{ flex:1 1 auto; min-height:0; }
   body.playMode #gameCanvas{ width:100%; height:100%; object-fit:contain; }
   /* Bottom-anchored, not top - the top edge sits under the status bar /
@@ -266,6 +270,7 @@
       <span class="live"><span class="dot"></span>Live Preview</span>
       <span id="hudInfo"></span>
       <span id="gridInfo"></span>
+      <button id="editThisGameBtn" type="button" style="display:none;">Edit this game</button>
     </div>
     <div id="canvasWrap">
       <canvas id="gameCanvas"></canvas>
@@ -760,6 +765,20 @@
     }
   }
   document.getElementById('exitPlayBtn').addEventListener('click', exitPlayMode);
+
+  // Recovery path for exactly the mistake of shipping an exported game.html
+  // as the editor's own index.html: everything the editor needs (resources,
+  // script) is already sitting in memory from the EXPORTED_GAME boot, so
+  // "editing" just means turning the chrome back on - no reload, no file
+  // changes, no re-push needed.
+  function promoteToEditor(){
+    EXPORTED_GAME = null;
+    document.body.classList.remove('standaloneGame');
+    exitPlayMode();
+    refreshPalette();
+    setStatus('Now editing. This only changes what you see right now - to fix it permanently, replace this build\'s index.html/preview.html with the real editor files.', false);
+  }
+  document.getElementById('editThisGameBtn').addEventListener('click', promoteToEditor);
 
   // ---------------- Movement / collision / combat ----------------
   function performAttack(hero, mob){
